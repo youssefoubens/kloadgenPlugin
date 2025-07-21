@@ -214,27 +214,31 @@ public final class SamplerUtil {
   }
 
   public static void setupConsumerDeserializerProperties(final Properties props, final JavaSamplerContext context) {
-    if (Objects.nonNull(context.getJMeterVariables().get(PropsKeysHelper.KEY_DESERIALIZER_CLASS_PROPERTY))) {
-      props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, context.getJMeterVariables().get(PropsKeysHelper.KEY_DESERIALIZER_CLASS_PROPERTY));
+    // Get JMeterVariables using JMeterContextService instead of context.getJMeterVariables()
+    final JMeterVariables jMeterVariables = JMeterContextService.getContext().getVariables();
+
+    if (Objects.nonNull(jMeterVariables.get(PropsKeysHelper.KEY_DESERIALIZER_CLASS_PROPERTY))) {
+      props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, jMeterVariables.get(PropsKeysHelper.KEY_DESERIALIZER_CLASS_PROPERTY));
     } else {
       props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
     }
-    if (Objects.nonNull(context.getJMeterVariables().get(PropsKeysHelper.VALUE_DESERIALIZER_CLASS_PROPERTY))) {
-      props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, context.getJMeterVariables().get(PropsKeysHelper.VALUE_DESERIALIZER_CLASS_PROPERTY));
+    if (Objects.nonNull(jMeterVariables.get(PropsKeysHelper.VALUE_DESERIALIZER_CLASS_PROPERTY))) {
+      props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, jMeterVariables.get(PropsKeysHelper.VALUE_DESERIALIZER_CLASS_PROPERTY));
     } else {
       props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
     }
   }
 
   public static void setupConsumerSchemaRegistryProperties(final Properties props, final JavaSamplerContext context) {
-    final Map<String, String> originals = setupSchemaRegistryAuthenticationProperties(context.getJMeterVariables());
+    final JMeterVariables jMeterVariables = JMeterContextService.getContext().getVariables();
+    final Map<String, String> originals = setupSchemaRegistryAuthenticationProperties(jMeterVariables);
     props.putAll(originals);
 
-    if (Objects.nonNull(context.getJMeterVariables().get(ProducerKeysHelper.VALUE_NAME_STRATEGY))) {
-      props.put(ProducerKeysHelper.VALUE_NAME_STRATEGY, context.getJMeterVariables().get(ProducerKeysHelper.VALUE_NAME_STRATEGY));
+    if (Objects.nonNull(jMeterVariables.get(ProducerKeysHelper.VALUE_NAME_STRATEGY))) {
+      props.put(ProducerKeysHelper.VALUE_NAME_STRATEGY, jMeterVariables.get(ProducerKeysHelper.VALUE_NAME_STRATEGY));
     }
-    if (Objects.nonNull(context.getJMeterVariables().get(ProducerKeysHelper.KEY_NAME_STRATEGY))) {
-      props.put(ProducerKeysHelper.KEY_NAME_STRATEGY, context.getJMeterVariables().get(ProducerKeysHelper.KEY_NAME_STRATEGY));
+    if (Objects.nonNull(jMeterVariables.get(ProducerKeysHelper.KEY_NAME_STRATEGY))) {
+      props.put(ProducerKeysHelper.KEY_NAME_STRATEGY, jMeterVariables.get(ProducerKeysHelper.KEY_NAME_STRATEGY));
     }
   }
 
@@ -261,6 +265,8 @@ public final class SamplerUtil {
 
   public static Properties setupCommonConsumerProperties(final JavaSamplerContext context) {
     final Properties props = new Properties();
+    final JMeterVariables jMeterVariables = JMeterContextService.getContext().getVariables();
+
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, context.getParameter(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
 
     setupConsumerDeserializerProperties(props, context);
@@ -276,14 +282,14 @@ public final class SamplerUtil {
 
     props.put(CommonClientConfigs.CLIENT_ID_CONFIG, context.getParameter(CommonClientConfigs.CLIENT_ID_CONFIG));
 
-    if (Objects.nonNull(context.getJMeterVariables().get(PropsKeysHelper.VALUE_SCHEMA))) {
-      props.put(PropsKeysHelper.VALUE_SCHEMA, context.getJMeterVariables().get(PropsKeysHelper.VALUE_SCHEMA));
+    if (Objects.nonNull(jMeterVariables.get(PropsKeysHelper.VALUE_SCHEMA))) {
+      props.put(PropsKeysHelper.VALUE_SCHEMA, jMeterVariables.get(PropsKeysHelper.VALUE_SCHEMA));
     }
-    if (Objects.nonNull(context.getJMeterVariables().get(PropsKeysHelper.KEY_SCHEMA))) {
-      props.put(PropsKeysHelper.KEY_SCHEMA, context.getJMeterVariables().get(PropsKeysHelper.KEY_SCHEMA));
+    if (Objects.nonNull(jMeterVariables.get(PropsKeysHelper.KEY_SCHEMA))) {
+      props.put(PropsKeysHelper.KEY_SCHEMA, jMeterVariables.get(PropsKeysHelper.KEY_SCHEMA));
     }
-    if (Objects.nonNull(context.getJMeterVariables().get(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL))) {
-      props.put(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL, context.getJMeterVariables().get(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL));
+    if (Objects.nonNull(jMeterVariables.get(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL))) {
+      props.put(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL, jMeterVariables.get(SchemaRegistryKeyHelper.SCHEMA_REGISTRY_URL));
     }
 
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, context.getParameter(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
@@ -310,6 +316,7 @@ public final class SamplerUtil {
 
     return props;
   }
+
 
   private static void verifySecurity(final JavaSamplerContext context, final Properties props) {
     if (ProducerKeysHelper.FLAG_YES.equalsIgnoreCase(context.getParameter(ProducerKeysHelper.SSL_ENABLED))) {
