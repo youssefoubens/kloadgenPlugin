@@ -97,7 +97,7 @@ public class KafkaConsumerSampler extends AbstractJavaSamplerClient implements S
     } catch (final IllegalStateException ex) {
       log.error("Failed to receive message", ex);
       fillSampleResult(sampleResult, ex.getMessage() != null ? ex.getMessage() : "",
-                       false);
+              false);
     }
     return sampleResult;
   }
@@ -112,7 +112,7 @@ public class KafkaConsumerSampler extends AbstractJavaSamplerClient implements S
 
   private String prettify(final ConsumerRecord<Object, Object> consumerRecord) {
     return "{ partition: " + consumerRecord.partition() + ", message: { key: " + consumerRecord.key()
-           + ", value: " + consumerRecord.value().toString() + " }}";
+            + ", value: " + consumerRecord.value().toString() + " }}";
   }
 
 }

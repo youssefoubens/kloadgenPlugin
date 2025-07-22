@@ -34,7 +34,7 @@ public class GenericAvroRecordSerializer<T extends GenericRecord> implements Ser
       writer.write(data, jsonEncoder);
       jsonEncoder.flush();
       String rawJson = stream.toString(StandardCharsets.UTF_8);
-      String fixedJson = AvroJsonDecimalFixer2.fixDecimals(rawJson, data.getSchema());
+      String fixedJson = AvroJsonDecimalFixer3.fixDecimals(rawJson, data.getSchema());
       return fixedJson.getBytes(StandardCharsets.UTF_8);
     } catch (final IOException ex) {
       log.error("Serialization error:" + ex.getMessage(), ex);

@@ -48,16 +48,11 @@ public final class RandomObject {
 
     final String fixFieldType = StringUtils.defaultString(fieldType, "string");
 
-    // DEBUG: Log input parameters
-    logger.info(String.format("generateRandom called with: fieldType=%s, valueLength=%s, fieldValueList=%s, constraints=%s",
-            fixFieldType, valueLength, fieldValueList, constraints));
-
     Object result = switch (fixFieldType.toLowerCase()) {
       case ValidTypeConstants.STRING -> getStringValueOrRandom(valueLength, fieldValueList, constraints);
       case ValidTypeConstants.INT -> {
         try {
           BigInteger bigInt = getIntegerValueOrRandom(valueLength, fieldValueList, constraints);
-          logger.info("Generated BigInteger for INT: " + bigInt);
           yield bigInt.intValueExact();
         } catch (final ArithmeticException exception) {
           logger.warning("ArithmeticException in INT generation, returning MAX_VALUE");
@@ -67,7 +62,6 @@ public final class RandomObject {
       case ValidTypeConstants.LONG -> {
         try {
           BigInteger bigInt = getIntegerValueOrRandom(valueLength, fieldValueList, constraints);
-          logger.info("Generated BigInteger for LONG: " + bigInt);
           yield bigInt.longValueExact();
         } catch (final ArithmeticException exception) {
           logger.warning("ArithmeticException in LONG generation, returning MAX_VALUE");
@@ -77,7 +71,6 @@ public final class RandomObject {
       case ValidTypeConstants.SHORT -> {
         try {
           BigInteger bigInt = getIntegerValueOrRandom(valueLength, fieldValueList, constraints);
-          logger.info("Generated BigInteger for SHORT: " + bigInt);
           yield bigInt.shortValueExact();
         } catch (final ArithmeticException exception) {
           logger.warning("ArithmeticException in SHORT generation, returning MAX_VALUE");
@@ -87,7 +80,6 @@ public final class RandomObject {
       case ValidTypeConstants.DOUBLE -> {
         try {
           BigDecimal bigDecimal = getDecimalValueOrRandom(valueLength, fieldValueList, constraints);
-          logger.info("Generated BigDecimal for DOUBLE: " + bigDecimal);
           yield bigDecimal.doubleValue();
         } catch (final ArithmeticException exception) {
           logger.warning("ArithmeticException in DOUBLE generation, returning MAX_VALUE");
@@ -97,7 +89,6 @@ public final class RandomObject {
       case ValidTypeConstants.NUMBER, ValidTypeConstants.FLOAT -> {
         try {
           BigDecimal bigDecimal = getDecimalValueOrRandom(valueLength, fieldValueList, constraints);
-          logger.info("Generated BigDecimal for FLOAT/NUMBER: " + bigDecimal);
           yield bigDecimal.floatValue();
         } catch (final ArithmeticException exception) {
           logger.warning("ArithmeticException in FLOAT/NUMBER generation, returning MAX_VALUE");
@@ -126,40 +117,27 @@ public final class RandomObject {
       }
     };
 
-    // DEBUG: Log the result and its type
-    logger.info(String.format("generateRandom returning: value=%s, type=%s, class=%s",
-            result, fixFieldType, result != null ? result.getClass().getName() : "null"));
-
     return result;
   }
 
   private String getBytesValueOrRandom(final Integer valueLength, final List<String> fieldValueList) {
-    logger.info("getBytesValueOrRandom called with valueLength=" + valueLength + ", fieldValueList=" + fieldValueList);
-
     if (!fieldValueList.isEmpty()) {
-      String result = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
-      logger.info("Returning bytes value from list: " + result);
-      return result;
+      return fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
     }
 
     // Generate Base64-encoded byte array for better JSON serialization
     int length = valueLength != null && valueLength > 0 ? valueLength : 8; // default length of 8 bytes
     byte[] byteArray = new byte[length];
     rand.nextBytes(byteArray);
-    String result = java.util.Base64.getEncoder().encodeToString(byteArray);
-    logger.info("Generated random bytes (Base64): " + result);
-    return result;
+    return java.util.Base64.getEncoder().encodeToString(byteArray);
   }
 
   private BigInteger getIntegerValueOrRandom(final Integer valueLength, final List<String> fieldValueList, final Map<ConstraintTypeEnum, String> constraints) {
-    logger.info("getIntegerValueOrRandom called with valueLength=" + valueLength + ", fieldValueList=" + fieldValueList + ", constraints=" + constraints);
-
     final BigInteger value;
 
     if (!fieldValueList.isEmpty()) {
       String stringValue = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
       value = new BigInteger(stringValue);
-      logger.info("Parsed integer from field list: " + stringValue + " -> " + value);
     } else {
       final Number minimum = calculateMinimum(valueLength, constraints);
       Number maximum;
@@ -167,7 +145,6 @@ public final class RandomObject {
         maximum = 1000;
         final int num = rand.nextInt((Integer) maximum);
         value = new BigInteger(String.valueOf(num));
-        logger.info("Generated random integer (valueLength=0): " + value);
       } else {
         maximum = calculateMaximum(valueLength, constraints);
 
@@ -175,10 +152,8 @@ public final class RandomObject {
           final int multipleOf = Integer.parseInt(constraints.get(ConstraintTypeEnum.MULTIPLE_OF));
           maximum = maximum.intValue() > multipleOf ? maximum.intValue() / multipleOf : maximum;
           value = BigInteger.valueOf(RandomUtils.nextLong(minimum.longValue(), maximum.longValue()) * multipleOf);
-          logger.info("Generated integer with multipleOf constraint: " + value);
         } else {
           value = BigInteger.valueOf(RandomUtils.nextLong(minimum.longValue(), maximum.longValue()));
-          logger.info("Generated random integer in range: " + value);
         }
       }
     }
@@ -186,14 +161,11 @@ public final class RandomObject {
   }
 
   private BigDecimal getDecimalValueOrRandom(final Integer valueLength, final List<String> fieldValueList, final Map<ConstraintTypeEnum, String> constraints) {
-    logger.info("getDecimalValueOrRandom called with valueLength=" + valueLength + ", fieldValueList=" + fieldValueList + ", constraints=" + constraints);
-
     final BigDecimal value;
 
     if (!fieldValueList.isEmpty()) {
       String stringValue = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
       value = new BigDecimal(stringValue);
-      logger.info("Parsed decimal from field list: " + stringValue + " -> " + value);
     } else {
       final Number minimum = calculateMinimum(valueLength - 1, constraints);
 
@@ -204,10 +176,8 @@ public final class RandomObject {
         final int multipleOf = Integer.parseInt(constraints.get(ConstraintTypeEnum.MULTIPLE_OF));
         maximum = maximum.intValue() > multipleOf ? maximum.intValue() / multipleOf : maximum;
         value = BigDecimal.valueOf(RandomUtils.nextDouble(minimum.doubleValue(), maximum.doubleValue()) * multipleOf);
-        logger.info("Generated decimal with multipleOf constraint: " + value);
       } else {
         value = new BigDecimal(BigInteger.valueOf(new Random().nextInt(100001)), 2);
-        logger.info("Generated random decimal: " + value);
       }
     }
     return value;
@@ -217,26 +187,19 @@ public final class RandomObject {
           final List<String> fieldValueList,
           final Map<ConstraintTypeEnum, String> constraints) {
 
-    logger.info("*** BYTES_DECIMAL DEBUG START ***");
-    logger.info("getBytesDecimalValueOrRandom called with fieldValueList=" + fieldValueList + ", constraints=" + constraints);
-
     final BigDecimal result;
 
     if (!fieldValueList.isEmpty()) {
       // Parse decimal value directly from field values (e.g., "2.25" -> 2.25)
       String decimalStr = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
-      logger.info("Using decimal from field list: '" + decimalStr + "'");
 
       try {
         result = new BigDecimal(decimalStr);
-        logger.info("Successfully parsed BigDecimal: " + result + " (scale=" + result.scale() + ", precision=" + result.precision() + ")");
       } catch (NumberFormatException e) {
         logger.severe("Failed to parse decimal string '" + decimalStr + "': " + e.getMessage());
         throw e;
       }
     } else {
-      logger.info("Field list is empty, generating random bytes_decimal");
-
       // Generate random decimal with constraints
       int scale = 10; // default scale for bytes_decimal
       int precision = 20; // default precision
@@ -244,13 +207,9 @@ public final class RandomObject {
       // Try to get from constraints
       if (Objects.nonNull(constraints.get(ConstraintTypeEnum.PRECISION))) {
         precision = Integer.parseInt(constraints.get(ConstraintTypeEnum.PRECISION));
-        logger.info("Got precision from constraints: " + precision);
         if (Objects.nonNull(constraints.get(ConstraintTypeEnum.SCALE))) {
           scale = Integer.parseInt(constraints.get(ConstraintTypeEnum.SCALE));
-          logger.info("Got scale from constraints: " + scale);
         }
-      } else {
-        logger.info("No precision in constraints, using defaults: precision=" + precision + ", scale=" + scale);
       }
 
       if (precision <= 0) {
@@ -263,11 +222,7 @@ public final class RandomObject {
       }
 
       result = BigDecimal.valueOf(randomNumberWithLength(precision), scale);
-      logger.info("Generated random BigDecimal: " + result + " (scale=" + result.scale() + ", precision=" + result.precision() + ")");
     }
-
-    logger.info("*** BYTES_DECIMAL RETURNING: " + result + " (class=" + result.getClass().getName() + ") ***");
-    logger.info("*** BYTES_DECIMAL DEBUG END ***");
 
     return result;
   }
@@ -276,9 +231,6 @@ public final class RandomObject {
           final List<String> fieldValueList,
           final Map<ConstraintTypeEnum, String> constraints) {
 
-    logger.info("*** FIXED_DECIMAL DEBUG START ***");
-    logger.info("getFixedDecimalValueOrRandom called with fieldValueList=" + fieldValueList + ", constraints=" + constraints);
-
     final BigDecimal result;
     int scale = 10; // reasonable default
     int precision = 20; // reasonable default
@@ -286,10 +238,8 @@ public final class RandomObject {
     // Try to get from constraints first
     if (Objects.nonNull(constraints.get(ConstraintTypeEnum.PRECISION))) {
       precision = Integer.parseInt(constraints.get(ConstraintTypeEnum.PRECISION));
-      logger.info("Got precision from constraints: " + precision);
       if (Objects.nonNull(constraints.get(ConstraintTypeEnum.SCALE))) {
         scale = Integer.parseInt(constraints.get(ConstraintTypeEnum.SCALE));
-        logger.info("Got scale from constraints: " + scale);
       }
     } else {
       // If no precision in constraints, this might be a union type issue
@@ -307,15 +257,10 @@ public final class RandomObject {
 
     if (fieldValueList.isEmpty()) {
       result = BigDecimal.valueOf(randomNumberWithLength(precision), scale);
-      logger.info("Generated random BigDecimal: " + result);
     } else {
       String decimalStr = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
-      logger.info("Using decimal from field list: '" + decimalStr + "'");
       result = new BigDecimal(decimalStr);
     }
-
-    logger.info("*** FIXED_DECIMAL RETURNING: " + result + " (class=" + result.getClass().getName() + ") ***");
-    logger.info("*** FIXED_DECIMAL DEBUG END ***");
 
     return result;
   }
@@ -323,12 +268,10 @@ public final class RandomObject {
   private String getStringValueOrRandom(
           final Integer valueLength, final List<String> fieldValueList,
           final Map<ConstraintTypeEnum, String> constraints) {
-    logger.info("getStringValueOrRandom called with valueLength=" + valueLength + ", fieldValueList=" + fieldValueList + ", constraints=" + constraints);
 
     String value;
     if (!fieldValueList.isEmpty() && !StringUtils.isEmpty(fieldValueList.get(0))) {
       value = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
-      logger.info("Using string from field list: '" + value + "'");
     } else {
       if (constraints.containsKey(ConstraintTypeEnum.REGEX)) {
         final RgxGen rxGenerator = new RgxGen(constraints.get(ConstraintTypeEnum.REGEX));
@@ -336,10 +279,8 @@ public final class RandomObject {
         if (valueLength > 0 || constraints.containsKey(ConstraintTypeEnum.MAXIMUM_VALUE)) {
           value = value.substring(0, getMaxLength(valueLength, constraints.get(ConstraintTypeEnum.MAXIMUM_VALUE)));
         }
-        logger.info("Generated string from regex: '" + value + "'");
       } else {
         value = RandomStringUtils.randomAlphabetic(valueLength == 0 ? RandomUtils.nextInt(1, 20) : valueLength);
-        logger.info("Generated random alphabetic string: '" + value + "'");
       }
     }
     return value;
@@ -350,69 +291,49 @@ public final class RandomObject {
     if (valueLength > 0 && maxValue == 0) {
       maxValue = valueLength;
     }
-    logger.info("Calculated max length: " + maxValue);
     return maxValue;
   }
 
   private Object getTimestampValueOrRandom(final String type, final List<String> fieldValueList) {
-    logger.info("getTimestampValueOrRandom called with type=" + type + ", fieldValueList=" + fieldValueList);
-
     final LocalDateTime value;
     if (!fieldValueList.isEmpty()) {
       String dateTimeStr = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
       value = LocalDateTime.parse(dateTimeStr);
-      logger.info("Parsed timestamp from field list: " + dateTimeStr + " -> " + value);
     } else {
       value = LocalDateTime.now();
-      logger.info("Generated current timestamp: " + value);
     }
     Object resultValue = value;
     if ("longTimestamp".equalsIgnoreCase(type)) {
       resultValue = value.toInstant(ZoneOffset.UTC).toEpochMilli();
-      logger.info("Converted to long timestamp: " + resultValue);
     } else if ("stringTimestamp".equalsIgnoreCase(type)) {
       resultValue = value.toString();
-      logger.info("Converted to string timestamp: " + resultValue);
     }
     return resultValue;
   }
 
   @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
   private UUID getUUIDValueOrRandom(final List<String> fieldValueList) {
-    logger.info("getUUIDValueOrRandom called with fieldValueList=" + fieldValueList);
-
     UUID value = UUID.randomUUID();
     if (!fieldValueList.isEmpty()) {
       String uuidStr = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
       value = UUID.fromString(uuidStr);
-      logger.info("Parsed UUID from field list: " + uuidStr + " -> " + value);
-    } else {
-      logger.info("Generated random UUID: " + value);
     }
     return value;
   }
 
   private Boolean getBooleanValueOrRandom(final List<String> fieldValueList) {
-    logger.info("getBooleanValueOrRandom called with fieldValueList=" + fieldValueList);
-
     boolean value = RandomUtils.nextBoolean();
     if (!fieldValueList.isEmpty()) {
       String boolStr = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
       value = Boolean.parseBoolean(boolStr);
-      logger.info("Parsed boolean from field list: " + boolStr + " -> " + value);
-    } else {
-      logger.info("Generated random boolean: " + value);
     }
     return value;
   }
 
   private String getEnumValueOrRandom(final List<String> fieldValueList) {
-    logger.info("getEnumValueOrRandom called with fieldValueList=" + fieldValueList);
-
     final String value;
     if (!fieldValueList.isEmpty()) {
       value = fieldValueList.get(RandomUtils.nextInt(0, fieldValueList.size())).trim();
-      logger.info("Selected enum value: " + value);
     } else {
       logger.severe("Empty enum field value list!");
       throw new KLoadGenException("Wrong enums values, problem in the parsing process");
@@ -425,14 +346,11 @@ public final class RandomObject {
     if (constraints.containsKey(ConstraintTypeEnum.MAXIMUM_VALUE)) {
       if (constraints.containsKey(ConstraintTypeEnum.EXCLUDED_MAXIMUM_VALUE)) {
         maximum = Long.parseLong(constraints.get(ConstraintTypeEnum.EXCLUDED_MAXIMUM_VALUE)) - 1L;
-        logger.info("Calculated excluded maximum: " + maximum);
       } else {
         maximum = Long.parseLong(constraints.get(ConstraintTypeEnum.MAXIMUM_VALUE));
-        logger.info("Using maximum from constraints: " + maximum);
       }
     } else {
       maximum = new BigDecimal(StringUtils.rightPad("9", valueLength, '0'));
-      logger.info("Calculated maximum from valueLength: " + maximum);
     }
     return maximum;
   }
@@ -442,33 +360,25 @@ public final class RandomObject {
     if (constraints.containsKey(ConstraintTypeEnum.MINIMUM_VALUE)) {
       if (constraints.containsKey(ConstraintTypeEnum.EXCLUDED_MINIMUM_VALUE)) {
         minimum = Long.parseLong(constraints.get(ConstraintTypeEnum.EXCLUDED_MINIMUM_VALUE)) - 1;
-        logger.info("Calculated excluded minimum: " + minimum);
       } else {
         minimum = Long.parseLong(constraints.get(ConstraintTypeEnum.MINIMUM_VALUE));
-        logger.info("Using minimum from constraints: " + minimum);
       }
     } else {
       minimum = Long.parseLong(StringUtils.rightPad("1", valueLength, '0'));
-      logger.info("Calculated minimum from valueLength: " + minimum);
     }
     return minimum;
   }
 
   private Integer getDateValueOrRandom(final String fieldType, final List<String> fieldValueList) {
-    logger.info("getDateValueOrRandom called with fieldType=" + fieldType + ", fieldValueList=" + fieldValueList);
-
     final LocalDate localDate = getDateValueOrRandom(fieldValueList);
     final int result;
 
     if ("int_year".equalsIgnoreCase(fieldType)) {
       result = localDate.getYear();
-      logger.info("Extracted year: " + result);
     } else if ("int_month".equalsIgnoreCase(fieldType)) {
       result = localDate.getMonthValue();
-      logger.info("Extracted month: " + result);
     } else if ("int_day".equalsIgnoreCase(fieldType)) {
       result = localDate.getDayOfMonth();
-      logger.info("Extracted day: " + result);
     } else {
       logger.severe("Unsupported date field type: " + fieldType);
       throw new KLoadGenException("FieldType wrong or not supported");
@@ -491,23 +401,17 @@ public final class RandomObject {
   }
 
   private Integer getTimeOfDayValueOrRandom(final String fieldType, final List<String> fieldValueList) {
-    logger.info("getTimeOfDayValueOrRandom called with fieldType=" + fieldType + ", fieldValueList=" + fieldValueList);
-
     final LocalTime localTime = getRandomLocalTime(fieldValueList);
     final int result;
 
     if ("int_hours".equalsIgnoreCase(fieldType)) {
       result = localTime.getHour();
-      logger.info("Extracted hours: " + result);
     } else if ("int_minutes".equalsIgnoreCase(fieldType)) {
       result = localTime.getMinute();
-      logger.info("Extracted minutes: " + result);
     } else if ("int_seconds".equalsIgnoreCase(fieldType)) {
       result = localTime.getSecond();
-      logger.info("Extracted seconds: " + result);
     } else if ("int_nanos".equalsIgnoreCase(fieldType)) {
       result = localTime.getNano();
-      logger.info("Extracted nanos: " + result);
     } else {
       logger.severe("Unsupported time field type: " + fieldType);
       throw new KLoadGenException("FieldType wrong or not supported");

@@ -219,15 +219,16 @@ public final class KafkaProducerSampler extends AbstractJavaSamplerClient implem
         sampleResult.setRequestHeaders(StringUtils.join(headersSB, ","));
         fillSamplerResult(producerRecord, sampleResult);
 
-        final var result = producer.send(producerRecord, (metadata, e) -> {
+        producer.send(producerRecord, (metadata, e) -> {
           if (e != null) {
             super.getNewLogger().error("Send failed for record {}", producerRecord, e);
-            throw new KLoadGenException("Failed to sent message due ", e);
+          } else {
+            super.getNewLogger().info("Message sent successfully: topic={}, partition={}, offset={}",
+                    metadata.topic(), metadata.partition(), metadata.offset());
           }
         });
-
-        fillSampleResult(sampleResult, prettyPrint(result.get()), true);
-      } catch (final KLoadGenException | InterruptedException | ExecutionException e) {
+        fillSampleResult(sampleResult, "Sent asynchronously", true);
+      } catch (final KLoadGenException e) {
         super.getNewLogger().error("Failed to send message", e);
         fillSampleResult(sampleResult, e.getMessage() != null ? e.getMessage() : "", false);
       }
