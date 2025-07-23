@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
+
 
 import com.sngular.kloadgen.common.SchemaRegistryEnum;
 import com.sngular.kloadgen.exception.KLoadGenException;
@@ -203,13 +203,16 @@ public final class KafkaProducerSampler extends AbstractJavaSamplerClient implem
   public SampleResult runTest(final JavaSamplerContext javaSamplerContext) {
 
     final var sampleResult = new SampleResult();
-    sampleResult.sampleStart();
-    final var jMeterContext = JMeterContextService.getContext();
+
+    // Generate message BEFORE starting timer to exclude serialization/generation time
     if (Objects.isNull(generator)) {
       throw new KLoadGenException("Error initializing Generator");
     }
     final var messageVal = generator.nextMessage();
+    final var jMeterContext = JMeterContextService.getContext();
     final var kafkaHeaders = safeGetKafkaHeaders(jMeterContext);
+
+    sampleResult.sampleStart();
 
     if (Objects.nonNull(messageVal)) {
       try {
@@ -219,6 +222,7 @@ public final class KafkaProducerSampler extends AbstractJavaSamplerClient implem
         sampleResult.setRequestHeaders(StringUtils.join(headersSB, ","));
         fillSamplerResult(producerRecord, sampleResult);
 
+        // Send async, do NOT wait for callback inside sample time
         producer.send(producerRecord, (metadata, e) -> {
           if (e != null) {
             super.getNewLogger().error("Send failed for record {}", producerRecord, e);
@@ -227,6 +231,8 @@ public final class KafkaProducerSampler extends AbstractJavaSamplerClient implem
                     metadata.topic(), metadata.partition(), metadata.offset());
           }
         });
+
+        // End sample timer immediately after send() call (not after completion)
         fillSampleResult(sampleResult, "Sent asynchronously", true);
       } catch (final KLoadGenException e) {
         super.getNewLogger().error("Failed to send message", e);
@@ -236,8 +242,10 @@ public final class KafkaProducerSampler extends AbstractJavaSamplerClient implem
       super.getNewLogger().error("Failed to Generate message");
       fillSampleResult(sampleResult, "Failed to Generate message", false);
     }
+
     return sampleResult;
   }
+
 
   private List<HeaderMapping> safeGetKafkaHeaders(final JMeterContext jmeterContext) {
     final var headerMappingList = new ArrayList<HeaderMapping>();

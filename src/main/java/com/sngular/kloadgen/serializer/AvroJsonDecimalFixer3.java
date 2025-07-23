@@ -9,6 +9,7 @@ import org.apache.avro.Schema;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +19,9 @@ public class AvroJsonDecimalFixer3 {
 
     // Cache for schema analysis results
     private static final Map<String, SchemaInfo> schemaCache = new ConcurrentHashMap<>();
+
+    // Cache for decimal conversions (memoization)
+    private static final Map<String, BigDecimal> decimalCache = new ConcurrentHashMap<>();
 
     // Data structures to cache schema analysis
     private static class SchemaInfo {
@@ -32,10 +36,8 @@ public class AvroJsonDecimalFixer3 {
                    Schema arrayElementSchema,
                    Schema mapValueSchema,
                    boolean isDecimalType) {
-            this.decimalFields = decimalFields != null ?
-                    Collections.unmodifiableMap(decimalFields) : Collections.emptyMap();
-            this.recordFieldSchemas = recordFieldSchemas != null ?
-                    Collections.unmodifiableMap(recordFieldSchemas) : Collections.emptyMap();
+            this.decimalFields = decimalFields != null ? Map.copyOf(decimalFields) : Map.of();
+            this.recordFieldSchemas = recordFieldSchemas != null ? Map.copyOf(recordFieldSchemas) : Map.of();
             this.arrayElementSchema = arrayElementSchema;
             this.mapValueSchema = mapValueSchema;
             this.isDecimalType = isDecimalType;
@@ -107,7 +109,7 @@ public class AvroJsonDecimalFixer3 {
             }
 
         } else if (node.isArray() && schemaInfo.arrayElementSchema != null) {
-            // Process array elements
+            // Process array elements (optional: parallel stream if needed)
             for (int i = 0; i < node.size(); i++) {
                 processNode(node.get(i), schemaInfo.arrayElementSchema);
             }
@@ -115,8 +117,23 @@ public class AvroJsonDecimalFixer3 {
     }
 
     private static SchemaInfo getOrComputeSchemaInfo(Schema schema) {
-        String schemaKey = schema.toString(); // Use schema string as key
+        String schemaKey = getSchemaCacheKey(schema);
         return schemaCache.computeIfAbsent(schemaKey, k -> analyzeSchema(schema));
+    }
+
+    private static String getSchemaCacheKey(Schema schema) {
+        String fullName = schema.getFullName();
+        if (fullName != null) {
+            return fullName;
+        } else {
+            // Fingerprint returns a byte[]; convert to hex string for key
+            byte[] fingerprint = schema.getFullName().getBytes(StandardCharsets.UTF_8);
+            StringBuilder sb = new StringBuilder();
+            for (byte b : fingerprint) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        }
     }
 
     private static SchemaInfo analyzeSchema(Schema schema) {
@@ -186,37 +203,41 @@ public class AvroJsonDecimalFixer3 {
     }
 
     private static void processDecimalFieldOptimized(ObjectNode obj, String key, JsonNode value, FieldInfo fieldInfo) {
+        String bytesValue = extractBytesValue(value, fieldInfo);
+
+        if (bytesValue != null) {
+            BigDecimal decimal = decimalCache.computeIfAbsent(bytesValue, k -> {
+                try {
+                    byte[] decoded = decodeBytes(k);
+                    return new BigDecimal(new BigInteger(decoded), fieldInfo.scale);
+                } catch (Exception e) {
+                    System.err.println("Failed to convert decimal for field '" + key + "': " + e.getMessage());
+                    return null;
+                }
+            });
+            if (decimal != null) {
+                obj.put(key, decimal);
+            }
+        }
+    }
+
+    private static String extractBytesValue(JsonNode value, FieldInfo fieldInfo) {
         String bytesValue = null;
 
-        // Handle different JSON representations of decimal bytes
         if (fieldInfo.isUnion && value.has("bytes")) {
             // Union type with bytes wrapper: {"bytes": "value"}
             bytesValue = value.get("bytes").asText();
         } else if (value.isTextual()) {
-            // Direct type: just the string value
+            // Direct textual value
             bytesValue = value.asText();
         } else if (value.isBinary()) {
-            // Direct bytes as binary node
             try {
                 bytesValue = new String(value.binaryValue());
             } catch (Exception e) {
                 System.err.println("Failed to read binary value: " + e.getMessage());
-                return;
             }
         }
-
-        if (bytesValue != null) {
-            try {
-                // Decode the bytes
-                byte[] decoded = decodeBytes(bytesValue);
-
-                // Convert to BigDecimal using cached scale
-                BigDecimal decimal = new BigDecimal(new BigInteger(decoded), fieldInfo.scale);
-                obj.put(key, decimal);
-            } catch (Exception e) {
-                System.err.println("Failed to convert decimal for field '" + key + "': " + e.getMessage());
-            }
-        }
+        return bytesValue;
     }
 
     private static List<Schema> getAllPossibleSchemas(Schema schema) {
@@ -228,37 +249,26 @@ public class AvroJsonDecimalFixer3 {
     }
 
     private static byte[] decodeBytes(String bytesValue) {
-        // Handle different encoding formats
         try {
-            // Method 1: Try base64 decoding first
-            return java.util.Base64.getDecoder().decode(bytesValue);
-        } catch (Exception e1) {
-            try {
-                // Method 2: Handle raw binary data encoded as string
-                byte[] result = new byte[bytesValue.length()];
-                for (int i = 0; i < bytesValue.length(); i++) {
-                    result[i] = (byte) bytesValue.charAt(i);
-                }
-                return result;
-            } catch (Exception e2) {
-                // Method 3: Fall back to ISO-8859-1 encoding
-                try {
-                    return bytesValue.getBytes("ISO-8859-1");
-                } catch (Exception e3) {
-                    // Method 4: Final fallback to UTF-8
-                    return bytesValue.getBytes();
-                }
-            }
+            return Base64.getDecoder().decode(bytesValue);
+        } catch (IllegalArgumentException e) {
+            // If decoding fails, rethrow or handle gracefully as needed
+            throw e;
         }
     }
 
     // Method to clear cache if needed (useful for testing or memory management)
     public static void clearCache() {
         schemaCache.clear();
+        decimalCache.clear();
     }
 
     // Method to get cache statistics (useful for monitoring)
-    public static int getCacheSize() {
+    public static int getSchemaCacheSize() {
         return schemaCache.size();
+    }
+
+    public static int getDecimalCacheSize() {
+        return decimalCache.size();
     }
 }
